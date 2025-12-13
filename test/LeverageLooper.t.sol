@@ -11,14 +11,21 @@ import {IPriceOracle} from "../src/interface/IPriceOracle.sol";
 
 contract MockToken2 is ERC20 {
     constructor(string memory n, string memory s) ERC20(n, s) {}
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 }
 
 contract MockOracle2 is IPriceOracle {
-    function getAssetPrice(address) external pure returns (uint256) { return 1e8; }
+    function getAssetPrice(address) external pure returns (uint256) {
+        return 1e8;
+    }
 }
 
-interface IMintable { function mint(address to, uint256 amount) external; }
+interface IMintable {
+    function mint(address to, uint256 amount) external;
+}
 
 contract MockRouter2 is ISwapRouter {
     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut) {
@@ -33,7 +40,9 @@ contract MockPool2 is IAaveV3Pool {
     mapping(address => uint256) public collateralBase;
     mapping(address => uint256) public debtBase;
 
-    function ADDRESSES_PROVIDER() external view returns (address) { return dataProvider; }
+    function ADDRESSES_PROVIDER() external view returns (address) {
+        return dataProvider;
+    }
 
     function supply(address asset, uint256 amount, address onBehalfOf, uint16) external {
         IERC20(asset).transferFrom(msg.sender, address(this), amount);
@@ -54,7 +63,8 @@ contract MockPool2 is IAaveV3Pool {
     function repay(address asset, uint256 amount, uint256, address onBehalfOf) external returns (uint256) {
         IERC20(asset).transferFrom(msg.sender, address(this), amount);
         uint256 base = amount * 1e8 / 1e18;
-        if (debtBase[onBehalfOf] >= base) debtBase[onBehalfOf] -= base; else debtBase[onBehalfOf] = 0;
+        if (debtBase[onBehalfOf] >= base) debtBase[onBehalfOf] -= base;
+        else debtBase[onBehalfOf] = 0;
         return amount;
     }
 
@@ -104,7 +114,7 @@ contract LeverageLooperTest is Test {
 
     function testLoopAndUnwind() public {
         looper.optInAndLoop(100e18, 5000, 5, 3000, 100, 1e18);
-        (uint256 c, uint256 d, , , uint256 ltv, ) = pool.getUserAccountData(address(looper));
+        (uint256 c, uint256 d,,, uint256 ltv,) = pool.getUserAccountData(address(looper));
         assertGt(c, 0);
         assertGt(d, 0);
         assertGe(ltv, 3000);
@@ -112,7 +122,7 @@ contract LeverageLooperTest is Test {
         collateral.approve(address(router), type(uint256).max);
         debt.approve(address(pool), type(uint256).max);
         looper.unwindToLTV(2000, 5, 3000, 100);
-        (, uint256 d2, , , uint256 ltv2, ) = pool.getUserAccountData(address(looper));
+        (, uint256 d2,,, uint256 ltv2,) = pool.getUserAccountData(address(looper));
         assertLe(ltv2, 2100);
         assertLt(d2, d);
     }

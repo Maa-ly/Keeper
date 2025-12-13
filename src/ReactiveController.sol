@@ -18,7 +18,14 @@ contract ReactiveController is AbstractReactive {
         collateral = _collateral;
     }
 
-    function onUserOptIn(uint256 supplyAmount, uint256 targetLTVBps, uint256 maxIterations, uint24 poolFee, uint256 slippageBps, uint256 minHealthFactor) external {
+    function onUserOptIn(
+        uint256 supplyAmount,
+        uint256 targetLTVBps,
+        uint256 maxIterations,
+        uint24 poolFee,
+        uint256 slippageBps,
+        uint256 minHealthFactor
+    ) external {
         IERC20(collateral).transferFrom(msg.sender, address(this), supplyAmount);
         IERC20(collateral).approve(address(looper), supplyAmount);
         looper.optInAndLoop(supplyAmount, targetLTVBps, maxIterations, poolFee, slippageBps, minHealthFactor);
@@ -28,23 +35,53 @@ contract ReactiveController is AbstractReactive {
         looper.unwindToLTV(targetLTVBps, maxIterations, poolFee, slippageBps);
     }
 
-    function onLiquidationOpportunity(address target, uint256 desiredLockedBase, uint256 maxIterations, uint24 poolFee, uint256 slippageBps, bool supplyAcquired, uint256 maxDebtPerStep) external {
-        liquidator.liquidateLoop(target, desiredLockedBase, maxIterations, poolFee, slippageBps, supplyAcquired, maxDebtPerStep);
+    function onLiquidationOpportunity(
+        address target,
+        uint256 desiredLockedBase,
+        uint256 maxIterations,
+        uint24 poolFee,
+        uint256 slippageBps,
+        bool supplyAcquired,
+        uint256 maxDebtPerStep
+    ) external {
+        liquidator.liquidateLoop(
+            target, desiredLockedBase, maxIterations, poolFee, slippageBps, supplyAcquired, maxDebtPerStep
+        );
     }
 
     function react(IReactive.LogRecord calldata log) external override {
         bytes memory payload = log.data;
         uint256 t0 = log.topic_0;
         if (t0 == uint256(keccak256("UserOptIn(address,uint256,uint256,uint24,uint256,uint256)"))) {
-            (uint256 supplyAmount, uint256 targetLTVBps, uint256 maxIterations, uint24 poolFee, uint256 slippageBps, uint256 minHealthFactor) = abi.decode(payload, (uint256,uint256,uint256,uint24,uint256,uint256));
+            (
+                uint256 supplyAmount,
+                uint256 targetLTVBps,
+                uint256 maxIterations,
+                uint24 poolFee,
+                uint256 slippageBps,
+                uint256 minHealthFactor
+            ) = abi.decode(payload, (uint256, uint256, uint256, uint24, uint256, uint256));
             IERC20(collateral).approve(address(looper), supplyAmount);
             looper.optInAndLoop(supplyAmount, targetLTVBps, maxIterations, poolFee, slippageBps, minHealthFactor);
         } else if (t0 == uint256(keccak256("Unwind(uint256,uint256,uint24,uint256)"))) {
-            (uint256 targetLTVBps, uint256 maxIterations, uint24 poolFee, uint256 slippageBps) = abi.decode(payload, (uint256,uint256,uint24,uint256));
+            (uint256 targetLTVBps, uint256 maxIterations, uint24 poolFee, uint256 slippageBps) =
+                abi.decode(payload, (uint256, uint256, uint24, uint256));
             looper.unwindToLTV(targetLTVBps, maxIterations, poolFee, slippageBps);
-        } else if (t0 == uint256(keccak256("LiquidationOpportunity(address,uint256,uint256,uint24,uint256,bool,uint256)"))) {
-            (address target, uint256 desiredLockedBase, uint256 maxIterations, uint24 poolFee, uint256 slippageBps, bool supplyAcquired, uint256 maxDebtPerStep) = abi.decode(payload, (address,uint256,uint256,uint24,uint256,bool,uint256));
-            liquidator.liquidateLoop(target, desiredLockedBase, maxIterations, poolFee, slippageBps, supplyAcquired, maxDebtPerStep);
+        } else if (
+            t0 == uint256(keccak256("LiquidationOpportunity(address,uint256,uint256,uint24,uint256,bool,uint256)"))
+        ) {
+            (
+                address target,
+                uint256 desiredLockedBase,
+                uint256 maxIterations,
+                uint24 poolFee,
+                uint256 slippageBps,
+                bool supplyAcquired,
+                uint256 maxDebtPerStep
+            ) = abi.decode(payload, (address, uint256, uint256, uint24, uint256, bool, uint256));
+            liquidator.liquidateLoop(
+                target, desiredLockedBase, maxIterations, poolFee, slippageBps, supplyAcquired, maxDebtPerStep
+            );
         }
     }
 }

@@ -44,7 +44,7 @@ contract LeverageLuidation {
         bool supplyAcquired,
         uint256 maxDebtToCoverDebtUnits
     ) public {
-        (uint256 tc, uint256 td, , , , uint256 hf) = pool.getUserAccountData(target);
+        (uint256 tc, uint256 td,,,, uint256 hf) = pool.getUserAccountData(target);
         if (hf >= 1e18) return;
 
         uint256 debtBal = IERC20(debt).balanceOf(address(this));
@@ -52,7 +52,9 @@ contract LeverageLuidation {
             uint256 need = maxDebtToCoverDebtUnits - debtBal;
             uint256 collPrice = oracle.getAssetPrice(collateral);
             uint256 collDecimals = _decimals(collateral);
-            uint256 minCollSpend = _tokenAmountFromBase(_baseFromToken(need, oracle.getAssetPrice(debt), _decimals(debt)), collPrice, collDecimals);
+            uint256 minCollSpend = _tokenAmountFromBase(
+                _baseFromToken(need, oracle.getAssetPrice(debt), _decimals(debt)), collPrice, collDecimals
+            );
             IERC20(collateral).forceApprove(address(router), minCollSpend);
             uint256 minOut = (need * (10000 - slippageBps)) / 10000;
             router.exactInputSingle(
@@ -78,8 +80,6 @@ contract LeverageLuidation {
             IERC20(collateral).forceApprove(address(pool), received);
             pool.supply(collateral, received, address(this), REFERRAL_CODE);
         }
-
-        
     }
 
     function liquidateLoop(
@@ -92,10 +92,10 @@ contract LeverageLuidation {
         uint256 maxDebtPerStep
     ) external {
         for (uint256 i = 0; i < maxIterations; i++) {
-            (uint256 myC, , , , , ) = pool.getUserAccountData(address(this));
+            (uint256 myC,,,,,) = pool.getUserAccountData(address(this));
             if (myC >= desiredLockedBase) break;
             liquidateOnce(target, desiredLockedBase, poolFee, slippageBps, supplyAcquired, maxDebtPerStep);
-            (uint256 hfC, , , , , ) = pool.getUserAccountData(target);
+            (uint256 hfC,,,,,) = pool.getUserAccountData(target);
             if (hfC >= 1e18) break;
         }
     }

@@ -15,21 +15,14 @@ interface IFarm {
     /// @param amountIn The amount of the underlying asset to deposit
     /// @param minAssetsOut Minimum expected aTokens (for slippage protection)
     /// @return assetsReceived The aTokens received
-    function depositToAave(
-        uint256 amountIn,
-        uint256 minAssetsOut
-    ) external returns (uint256 assetsReceived);
+    function depositToAave(uint256 amountIn, uint256 minAssetsOut) external returns (uint256 assetsReceived);
 
     /// @notice Withdraws underlying assets from Aave
     /// @param amount The amount of underlying asset to withdraw
     /// @param to The address to receive the withdrawn assets
     /// @param minAssetsOut Minimum expected assets received (slippage protection)
     /// @return assetsSpent The actual amount of aTokens spent
-    function withdrawFromAave(
-        uint256 amount,
-        address to,
-        uint256 minAssetsOut
-    ) external returns (uint256 assetsSpent);
+    function withdrawFromAave(uint256 amount, address to, uint256 minAssetsOut) external returns (uint256 assetsSpent);
 
     /// @notice Returns the maximum allowed deposit into Aave
     function maxDepositToAave() external view returns (uint256);

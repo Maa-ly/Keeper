@@ -13,7 +13,14 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 contract CrossChainArbReactive is AbstractReactive {
     using SafeERC20 for IERC20;
 
-    struct ChainConfig { ISwapRouter router; IAaveV3Pool pool; IPriceOracle oracle; address collateral; address debt; uint24 fee; }
+    struct ChainConfig {
+        ISwapRouter router;
+        IAaveV3Pool pool;
+        IPriceOracle oracle;
+        address collateral;
+        address debt;
+        uint24 fee;
+    }
 
     mapping(uint256 => ChainConfig) public cfg;
     mapping(uint256 => uint256) public lastPrice;
@@ -24,13 +31,30 @@ contract CrossChainArbReactive is AbstractReactive {
 
     LeverageLuidation public liquidator;
 
-    constructor(address _liquidator) { liquidator = LeverageLuidation(_liquidator); minDiffBps = 300; slippageBps = 100; arbAmount = 1000e6; }
+    constructor(address _liquidator) {
+        liquidator = LeverageLuidation(_liquidator);
+        minDiffBps = 300;
+        slippageBps = 100;
+        arbAmount = 1000e6;
+    }
 
-    function setChain(uint256 chainId, address router, address pool, address oracle, address collateral, address debt, uint24 fee) external {
+    function setChain(
+        uint256 chainId,
+        address router,
+        address pool,
+        address oracle,
+        address collateral,
+        address debt,
+        uint24 fee
+    ) external {
         cfg[chainId] = ChainConfig(ISwapRouter(router), IAaveV3Pool(pool), IPriceOracle(oracle), collateral, debt, fee);
     }
 
-    function setParams(uint256 _minDiffBps, uint256 _arbAmount, uint256 _slippageBps) external { minDiffBps = _minDiffBps; arbAmount = _arbAmount; slippageBps = _slippageBps; }
+    function setParams(uint256 _minDiffBps, uint256 _arbAmount, uint256 _slippageBps) external {
+        minDiffBps = _minDiffBps;
+        arbAmount = _arbAmount;
+        slippageBps = _slippageBps;
+    }
 
     function react(IReactive.LogRecord calldata log) external override {
         uint256 t0 = log.topic_0;
@@ -63,19 +87,54 @@ contract CrossChainArbReactive is AbstractReactive {
         IERC20(cl.debt).forceApprove(address(cl.router), arbAmount);
         uint256 minEth = _usdToTokenOut(arbAmount, cl.oracle.getAssetPrice(cl.collateral), _decimals(cl.collateral));
         minEth = (minEth * (10000 - slippageBps)) / 10000;
-        cl.router.exactInputSingle(ISwapRouter.ExactInputSingleParams({ tokenIn: cl.debt, tokenOut: cl.collateral, fee: cl.fee, recipient: address(this), deadline: block.timestamp, amountIn: arbAmount, amountOutMinimum: minEth, sqrtPriceLimitX96: 0 }));
+        cl.router
+            .exactInputSingle(
+                ISwapRouter.ExactInputSingleParams({
+                    tokenIn: cl.debt,
+                    tokenOut: cl.collateral,
+                    fee: cl.fee,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: arbAmount,
+                    amountOutMinimum: minEth,
+                    sqrtPriceLimitX96: 0
+                })
+            );
 
         uint256 ethBal = IERC20(cl.collateral).balanceOf(address(this));
         IERC20(cl.collateral).forceApprove(address(ch.router), ethBal);
         uint256 minUsd = _usdToTokenOut(ethBal, ch.oracle.getAssetPrice(ch.debt), _decimals(ch.debt));
         minUsd = (minUsd * (10000 - slippageBps)) / 10000;
-        ch.router.exactInputSingle(ISwapRouter.ExactInputSingleParams({ tokenIn: cl.collateral, tokenOut: ch.debt, fee: ch.fee, recipient: address(this), deadline: block.timestamp, amountIn: ethBal, amountOutMinimum: minUsd, sqrtPriceLimitX96: 0 }));
+        ch.router
+            .exactInputSingle(
+                ISwapRouter.ExactInputSingleParams({
+                    tokenIn: cl.collateral,
+                    tokenOut: ch.debt,
+                    fee: ch.fee,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: ethBal,
+                    amountOutMinimum: minUsd,
+                    sqrtPriceLimitX96: 0
+                })
+            );
     }
 
-    function _usdToTokenOut(uint256 baseAmount, uint256 price, uint256 tokenDecimals) internal pure returns (uint256) { return (baseAmount * (10 ** tokenDecimals)) / price; }
+    function _usdToTokenOut(uint256 baseAmount, uint256 price, uint256 tokenDecimals) internal pure returns (uint256) {
+        return (baseAmount * (10 ** tokenDecimals)) / price;
+    }
 
-    function _decimals(address token) internal view returns (uint8) { try IERC20Metadata(token).decimals() returns (uint8 d) { return d; } catch { return 18; } }
+    function _decimals(address token) internal view returns (uint8) {
+        try IERC20Metadata(token).decimals() returns (uint8 d) {
+            return d;
+        }
+            catch {
+            return 18;
+        }
+    }
 }
 
-interface IERC20Metadata is IERC20 { function decimals() external view returns (uint8); }
+interface IERC20Metadata is IERC20 {
+    function decimals() external view returns (uint8);
+}
 

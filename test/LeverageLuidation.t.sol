@@ -11,11 +11,16 @@ import {IPriceOracle} from "../src/interface/IPriceOracle.sol";
 
 contract MockToken is ERC20 {
     constructor(string memory n, string memory s) ERC20(n, s) {}
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 }
 
 contract MockOracle is IPriceOracle {
-    function getAssetPrice(address) external pure returns (uint256) { return 1e8; }
+    function getAssetPrice(address) external pure returns (uint256) {
+        return 1e8;
+    }
 }
 
 contract MockRouter is ISwapRouter {
@@ -31,9 +36,13 @@ contract MockPool is IAaveV3Pool {
     uint256 public targetHealth;
     mapping(address => uint256) public collateralBase;
 
-    function setHealth(uint256 hf) external { targetHealth = hf; }
+    function setHealth(uint256 hf) external {
+        targetHealth = hf;
+    }
 
-    function ADDRESSES_PROVIDER() external view returns (address) { return dataProvider; }
+    function ADDRESSES_PROVIDER() external view returns (address) {
+        return dataProvider;
+    }
 
     function supply(address asset, uint256 amount, address onBehalfOf, uint16) external {
         IERC20(asset).transferFrom(msg.sender, address(this), amount);
@@ -118,7 +127,7 @@ contract LeverageLuidationTest is Test {
     }
 
     function _userBase(address u) internal view returns (uint256) {
-        (uint256 c, , , , , ) = pool.getUserAccountData(u);
+        (uint256 c,,,,,) = pool.getUserAccountData(u);
         return c;
     }
 }

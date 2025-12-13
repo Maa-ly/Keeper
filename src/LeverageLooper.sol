@@ -44,7 +44,13 @@ contract LeverageLooper {
         pool.supply(collateral, supplyAmount, address(this), REFERRAL_CODE);
 
         for (uint256 i = 0; i < maxIterations; i++) {
-            (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, , uint256 ltv, uint256 health) = pool.getUserAccountData(address(this));
+            (
+                uint256 totalCollateralBase,
+                uint256 totalDebtBase,
+                uint256 availableBorrowsBase,,
+                uint256 ltv,
+                uint256 health
+            ) = pool.getUserAccountData(address(this));
             if (ltv >= targetLTVBps) break;
             if (availableBorrowsBase == 0) break;
 
@@ -76,19 +82,15 @@ contract LeverageLooper {
             IERC20(collateral).forceApprove(address(pool), amountOut);
             pool.supply(collateral, amountOut, address(this), REFERRAL_CODE);
 
-            (, , , , , health) = pool.getUserAccountData(address(this));
+            (,,,,, health) = pool.getUserAccountData(address(this));
             if (health < minHealthFactor) break;
         }
     }
 
-    function unwindToLTV(
-        uint256 targetLTVBps,
-        uint256 maxIterations,
-        uint24 poolFee,
-        uint256 slippageBps
-    ) external {
+    function unwindToLTV(uint256 targetLTVBps, uint256 maxIterations, uint24 poolFee, uint256 slippageBps) external {
         for (uint256 i = 0; i < maxIterations; i++) {
-            (uint256 totalCollateralBase, uint256 totalDebtBase, , , uint256 ltv, ) = pool.getUserAccountData(address(this));
+            (uint256 totalCollateralBase, uint256 totalDebtBase,,, uint256 ltv,) =
+                pool.getUserAccountData(address(this));
             if (ltv <= targetLTVBps || totalDebtBase == 0) break;
             uint256 targetDebtBase = (totalCollateralBase * targetLTVBps) / 10000;
             uint256 repayBase = totalDebtBase - targetDebtBase;
