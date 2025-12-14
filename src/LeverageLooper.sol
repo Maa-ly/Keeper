@@ -54,8 +54,18 @@ contract LeverageLooper is AbstractReactive {
         arbSlippageBps = 100;
     }
 
-    function setChain(uint256 chainId, address _router, address _pool, address _oracle, address _collateral, address _debt, uint24 _fee) external {
-        chainCfg[chainId] = ChainConfig(ISwapRouter(_router), IAaveV3Pool(_pool), IPriceOracle(_oracle), _collateral, _debt, _fee);
+    function setChain(
+        uint256 chainId,
+        address _router,
+        address _pool,
+        address _oracle,
+        address _collateral,
+        address _debt,
+        uint24 _fee
+    ) external {
+        chainCfg[chainId] = ChainConfig(
+            ISwapRouter(_router), IAaveV3Pool(_pool), IPriceOracle(_oracle), _collateral, _debt, _fee
+        );
     }
 
     function setArbParams(uint256 _minDiffBps, uint256 _arbAmount, uint256 _slippageBps) external {
@@ -164,7 +174,7 @@ contract LeverageLooper is AbstractReactive {
         uint256 slippageBps
     ) public {
         for (uint256 i = 0; i < maxIterations; i++) {
-            (,, , , , uint256 hf) = POOL.getUserAccountData(target);
+            (,,,,, uint256 hf) = POOL.getUserAccountData(target);
             if (hf >= 1e18) break;
 
             uint256 debtBal = IERC20(DEBT).balanceOf(address(this));
@@ -213,18 +223,24 @@ contract LeverageLooper is AbstractReactive {
                 if (amountIn > debtBal) amountIn = debtBal;
                 if (amountIn > 0) {
                     IERC20(DEBT).forceApprove(address(ROUTER), amountIn);
-                    uint256 expectedOut = _baseToToken(_tokenToBase(amountIn, ORACLE.getAssetPrice(DEBT), _decimals(DEBT)), ORACLE.getAssetPrice(COLLATERAL), _decimals(COLLATERAL));
+                    uint256 expectedOut = _baseToToken(
+                        _tokenToBase(amountIn, ORACLE.getAssetPrice(DEBT), _decimals(DEBT)),
+                        ORACLE.getAssetPrice(COLLATERAL),
+                        _decimals(COLLATERAL)
+                    );
                     uint256 minOut = (expectedOut * (10000 - slippageBps)) / 10000;
-                    ROUTER.exactInputSingle(ISwapRouter.ExactInputSingleParams({
-                        tokenIn: DEBT,
-                        tokenOut: COLLATERAL,
-                        fee: poolFee,
-                        recipient: address(this),
-                        deadline: block.timestamp,
-                        amountIn: amountIn,
-                        amountOutMinimum: minOut,
-                        sqrtPriceLimitX96: 0
-                    }));
+                    ROUTER.exactInputSingle(
+                        ISwapRouter.ExactInputSingleParams({
+                            tokenIn: DEBT,
+                            tokenOut: COLLATERAL,
+                            fee: poolFee,
+                            recipient: address(this),
+                            deadline: block.timestamp,
+                            amountIn: amountIn,
+                            amountOutMinimum: minOut,
+                            sqrtPriceLimitX96: 0
+                        })
+                    );
                 }
             }
 
@@ -254,15 +270,33 @@ contract LeverageLooper is AbstractReactive {
             (address target) = abi.decode(payload, (address));
             liquidateLoop(target, 3, arbAmount, 3000, arbSlippageBps);
         } else if (t0 == uint256(keccak256("UserOptIn(address,uint256,uint256,uint24,uint256,uint256,uint256)"))) {
-            (address user, uint256 supplyAmount, uint256 targetLTVBps, uint256 maxIterations, uint24 poolFee, uint256 slippageBps, uint256 minHealthFactor, uint256 profitTargetBase) =
-                abi.decode(payload, (address,uint256,uint256,uint256,uint24,uint256,uint256,uint256));
+            (
+                address user,
+                uint256 supplyAmount,
+                uint256 targetLTVBps,
+                uint256 maxIterations,
+                uint24 poolFee,
+                uint256 slippageBps,
+                uint256 minHealthFactor,
+                uint256 profitTargetBase
+            ) = abi.decode(payload, (address, uint256, uint256, uint256, uint24, uint256, uint256, uint256));
             IERC20(COLLATERAL).safeTransferFrom(user, address(this), supplyAmount);
-            optInAndLoop(supplyAmount, targetLTVBps, maxIterations, poolFee, slippageBps, minHealthFactor, profitTargetBase);
+            optInAndLoop(
+                supplyAmount, targetLTVBps, maxIterations, poolFee, slippageBps, minHealthFactor, profitTargetBase
+            );
         } else if (t0 == uint256(keccak256("Unwind(uint256,uint256,uint24,uint256)"))) {
-            (uint256 targetLTVBps, uint256 maxIterations, uint24 poolFee, uint256 slippageBps) = abi.decode(payload, (uint256,uint256,uint24,uint256));
+            (uint256 targetLTVBps, uint256 maxIterations, uint24 poolFee, uint256 slippageBps) =
+                abi.decode(payload, (uint256, uint256, uint24, uint256));
             unwindToLtv(targetLTVBps, maxIterations, poolFee, slippageBps);
         } else if (t0 == uint256(keccak256("LoopToTVL(uint256,uint256,uint24,uint256,address,uint256)"))) {
-            (uint256 targetCollateralBase, uint256 maxIterations, uint24 poolFee, uint256 slippageBps, address liquidationTarget, uint256 maxDebtPerStep) = abi.decode(payload, (uint256,uint256,uint24,uint256,address,uint256));
+            (
+                uint256 targetCollateralBase,
+                uint256 maxIterations,
+                uint24 poolFee,
+                uint256 slippageBps,
+                address liquidationTarget,
+                uint256 maxDebtPerStep
+            ) = abi.decode(payload, (uint256, uint256, uint24, uint256, address, uint256));
             loopToTvl(targetCollateralBase, maxIterations, poolFee, slippageBps, liquidationTarget, maxDebtPerStep);
         }
     }
@@ -288,31 +322,37 @@ contract LeverageLooper is AbstractReactive {
         IERC20(cl.debt).forceApprove(address(cl.router), arbAmount);
         uint256 minEth = _baseToToken(arbAmount, cl.oracle.getAssetPrice(cl.collateral), _decimals(cl.collateral));
         minEth = (minEth * (10000 - arbSlippageBps)) / 10000;
-        cl.router.exactInputSingle(ISwapRouter.ExactInputSingleParams({
-            tokenIn: cl.debt,
-            tokenOut: cl.collateral,
-            fee: cl.fee,
-            recipient: address(this),
-            deadline: block.timestamp,
-            amountIn: arbAmount,
-            amountOutMinimum: minEth,
-            sqrtPriceLimitX96: 0
-        }));
+        cl.router
+            .exactInputSingle(
+                ISwapRouter.ExactInputSingleParams({
+                    tokenIn: cl.debt,
+                    tokenOut: cl.collateral,
+                    fee: cl.fee,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: arbAmount,
+                    amountOutMinimum: minEth,
+                    sqrtPriceLimitX96: 0
+                })
+            );
 
         uint256 ethBal = IERC20(cl.collateral).balanceOf(address(this));
         IERC20(cl.collateral).forceApprove(address(ch.router), ethBal);
         uint256 minUsd = _baseToToken(ethBal, ch.oracle.getAssetPrice(ch.debt), _decimals(ch.debt));
         minUsd = (minUsd * (10000 - arbSlippageBps)) / 10000;
-        ch.router.exactInputSingle(ISwapRouter.ExactInputSingleParams({
-            tokenIn: cl.collateral,
-            tokenOut: ch.debt,
-            fee: ch.fee,
-            recipient: address(this),
-            deadline: block.timestamp,
-            amountIn: ethBal,
-            amountOutMinimum: minUsd,
-            sqrtPriceLimitX96: 0
-        }));
+        ch.router
+            .exactInputSingle(
+                ISwapRouter.ExactInputSingleParams({
+                    tokenIn: cl.collateral,
+                    tokenOut: ch.debt,
+                    fee: ch.fee,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: ethBal,
+                    amountOutMinimum: minUsd,
+                    sqrtPriceLimitX96: 0
+                })
+            );
     }
 
     function _baseToToken(uint256 baseAmount, uint256 price, uint256 tokenDecimals) internal pure returns (uint256) {
@@ -332,7 +372,7 @@ contract LeverageLooper is AbstractReactive {
     }
 
     function _netBase() internal view returns (uint256) {
-        (uint256 totalCollateralBase, uint256 totalDebtBase,,, ,) = POOL.getUserAccountData(address(this));
+        (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = POOL.getUserAccountData(address(this));
         if (totalCollateralBase >= totalDebtBase) return totalCollateralBase - totalDebtBase;
         return 0;
     }
