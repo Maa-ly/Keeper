@@ -39,6 +39,9 @@ contract LeverageLooper is AbstractReactive {
     uint256 public arbAmount;
     uint256 public arbSlippageBps;
     uint256 public baselineNetBase;
+    address public destLooper;
+    uint256 public destChainId;
+    uint64 public callbackGasLimit;
 
     constructor(address _pool, address _router, address _oracle, address _collateral, address _debt) {
         require(_pool != address(0) && _router != address(0) && _oracle != address(0));
@@ -52,6 +55,7 @@ contract LeverageLooper is AbstractReactive {
         minDiffBps = 300;
         arbAmount = 1000e6;
         arbSlippageBps = 100;
+        callbackGasLimit = 2000000;
     }
 
     function setChain(
@@ -72,6 +76,15 @@ contract LeverageLooper is AbstractReactive {
         minDiffBps = _minDiffBps;
         arbAmount = _arbAmount;
         arbSlippageBps = _slippageBps;
+    }
+
+    function setDestination(address looper, uint256 chainId) external rnOnly {
+        destLooper = looper;
+        destChainId = chainId;
+    }
+
+    function setCallbackGasLimit(uint64 gasLimit) external rnOnly {
+        callbackGasLimit = gasLimit;
     }
 
     function optInAndLoop(
@@ -105,6 +118,70 @@ contract LeverageLooper is AbstractReactive {
             }
 
             uint256 targetDebtBase = (totalCollateralBase * targetLTVBps) / 10000;
+            if (targetDebtBase <= totalDebtBase) break;
+            uint256 addDebtBase = targetDebtBase - totalDebtBase;
+            if (addDebtBase > availableBorrowsBase) addDebtBase = availableBorrowsBase;
+
+            uint256 debtPrice = ORACLE.getAssetPrice(DEBT);
+            uint256 borrowAmount = _baseToToken(addDebtBase, debtPrice, _decimals(DEBT));
+            POOL.borrow(DEBT, borrowAmount, INTEREST_RATE_MODE_VARIABLE, REFERRAL_CODE, address(this));
+
+            IERC20(DEBT).forceApprove(address(ROUTER), borrowAmount);
+            uint256 expectedOut = _baseToToken(addDebtBase, ORACLE.getAssetPrice(COLLATERAL), _decimals(COLLATERAL));
+            uint256 minOut = (expectedOut * (10000 - slippageBps)) / 10000;
+            uint256 amountOut = ROUTER.exactInputSingle(
+                ISwapRouter.ExactInputSingleParams({
+                    tokenIn: DEBT,
+                    tokenOut: COLLATERAL,
+                    fee: poolFee,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: borrowAmount,
+                    amountOutMinimum: minOut,
+                    sqrtPriceLimitX96: 0
+                })
+            );
+
+            IERC20(COLLATERAL).forceApprove(address(POOL), amountOut);
+            POOL.supply(COLLATERAL, amountOut, address(this), REFERRAL_CODE);
+
+            (,,,,, health) = POOL.getUserAccountData(address(this));
+            if (health < minHealthFactor) break;
+        }
+    }
+
+    function optInFromUser(
+        address user,
+        uint256 supplyAmount,
+        uint256 targetLtvBps,
+        uint256 maxIterations,
+        uint24 poolFee,
+        uint256 slippageBps,
+        uint256 minHealthFactor,
+        uint256 profitTargetBase
+    ) public {
+        _maybeArb();
+        IERC20(COLLATERAL).safeTransferFrom(user, address(this), supplyAmount);
+        IERC20(COLLATERAL).forceApprove(address(POOL), supplyAmount);
+        POOL.supply(COLLATERAL, supplyAmount, address(this), REFERRAL_CODE);
+        baselineNetBase = _netBase();
+
+        for (uint256 i = 0; i < maxIterations; i++) {
+            (
+                uint256 totalCollateralBase,
+                uint256 totalDebtBase,
+                uint256 availableBorrowsBase,,
+                uint256 ltv,
+                uint256 health
+            ) = POOL.getUserAccountData(address(this));
+            if (ltv >= targetLtvBps) break;
+            if (availableBorrowsBase == 0) break;
+            if (profitTargetBase > 0) {
+                uint256 netNow = _netBase();
+                if (netNow >= baselineNetBase + profitTargetBase) break;
+            }
+
+            uint256 targetDebtBase = (totalCollateralBase * targetLtvBps) / 10000;
             if (targetDebtBase <= totalDebtBase) break;
             uint256 addDebtBase = targetDebtBase - totalDebtBase;
             if (addDebtBase > availableBorrowsBase) addDebtBase = availableBorrowsBase;
@@ -265,10 +342,23 @@ contract LeverageLooper is AbstractReactive {
         if (t0 == uint256(keccak256("PriceUpdate(uint256)"))) {
             uint256 price = abi.decode(payload, (uint256));
             lastPrice[log.chain_id] = price;
-            _maybeArb();
+            if (vm) {
+                emit Callback(destChainId, destLooper, callbackGasLimit, abi.encodeWithSelector(this.maybeArb.selector));
+            } else {
+                _maybeArb();
+            }
         } else if (t0 == uint256(keccak256("HealthBelow(address)"))) {
             (address target) = abi.decode(payload, (address));
-            liquidateLoop(target, 3, arbAmount, 3000, arbSlippageBps);
+            if (vm) {
+                emit Callback(
+                    destChainId,
+                    destLooper,
+                    callbackGasLimit,
+                    abi.encodeWithSelector(this.liquidateLoop.selector, target, 3, arbAmount, 3000, arbSlippageBps)
+                );
+            } else {
+                liquidateLoop(target, 3, arbAmount, 3000, arbSlippageBps);
+            }
         } else if (t0 == uint256(keccak256("UserOptIn(address,uint256,uint256,uint24,uint256,uint256,uint256)"))) {
             (
                 address user,
@@ -280,14 +370,42 @@ contract LeverageLooper is AbstractReactive {
                 uint256 minHealthFactor,
                 uint256 profitTargetBase
             ) = abi.decode(payload, (address, uint256, uint256, uint256, uint24, uint256, uint256, uint256));
-            IERC20(COLLATERAL).safeTransferFrom(user, address(this), supplyAmount);
-            optInAndLoop(
-                supplyAmount, targetLTVBps, maxIterations, poolFee, slippageBps, minHealthFactor, profitTargetBase
-            );
+            if (vm) {
+                emit Callback(
+                    destChainId,
+                    destLooper,
+                    callbackGasLimit,
+                    abi.encodeWithSelector(
+                        this.optInFromUser.selector,
+                        user,
+                        supplyAmount,
+                        targetLTVBps,
+                        maxIterations,
+                        poolFee,
+                        slippageBps,
+                        minHealthFactor,
+                        profitTargetBase
+                    )
+                );
+            } else {
+                IERC20(COLLATERAL).safeTransferFrom(user, address(this), supplyAmount);
+                optInAndLoop(
+                    supplyAmount, targetLTVBps, maxIterations, poolFee, slippageBps, minHealthFactor, profitTargetBase
+                );
+            }
         } else if (t0 == uint256(keccak256("Unwind(uint256,uint256,uint24,uint256)"))) {
             (uint256 targetLTVBps, uint256 maxIterations, uint24 poolFee, uint256 slippageBps) =
                 abi.decode(payload, (uint256, uint256, uint24, uint256));
-            unwindToLtv(targetLTVBps, maxIterations, poolFee, slippageBps);
+            if (vm) {
+                emit Callback(
+                    destChainId,
+                    destLooper,
+                    callbackGasLimit,
+                    abi.encodeWithSelector(this.unwindToLtv.selector, targetLTVBps, maxIterations, poolFee, slippageBps)
+                );
+            } else {
+                unwindToLtv(targetLTVBps, maxIterations, poolFee, slippageBps);
+            }
         } else if (t0 == uint256(keccak256("LoopToTVL(uint256,uint256,uint24,uint256,address,uint256)"))) {
             (
                 uint256 targetCollateralBase,
@@ -297,8 +415,40 @@ contract LeverageLooper is AbstractReactive {
                 address liquidationTarget,
                 uint256 maxDebtPerStep
             ) = abi.decode(payload, (uint256, uint256, uint24, uint256, address, uint256));
-            loopToTvl(targetCollateralBase, maxIterations, poolFee, slippageBps, liquidationTarget, maxDebtPerStep);
+            if (vm) {
+                emit Callback(
+                    destChainId,
+                    destLooper,
+                    callbackGasLimit,
+                    abi.encodeWithSelector(
+                        this.loopToTvl.selector,
+                        targetCollateralBase,
+                        maxIterations,
+                        poolFee,
+                        slippageBps,
+                        liquidationTarget,
+                        maxDebtPerStep
+                    )
+                );
+            } else {
+                loopToTvl(targetCollateralBase, maxIterations, poolFee, slippageBps, liquidationTarget, maxDebtPerStep);
+            }
         }
+    }
+
+    function maybeArb() external {
+        _maybeArb();
+    }
+
+    function subscribe(
+        uint256 chain_id,
+        address _contract,
+        uint256 topic_0,
+        uint256 topic_1,
+        uint256 topic_2,
+        uint256 topic_3
+    ) external rnOnly {
+        service.subscribe(chain_id, _contract, topic_0, topic_1, topic_2, topic_3);
     }
 
     function _maybeArb() internal {

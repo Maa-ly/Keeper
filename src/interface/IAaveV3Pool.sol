@@ -8,12 +8,20 @@ interface IAaveV3Pool {
 
     function withdraw(address asset, uint256 amount, address to) external returns (uint256);
 
-    function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf)
-        external;
+    function borrow(
+        address asset,
+        uint256 amount,
+        uint256 interestRateMode,
+        uint16 referralCode,
+        address onBehalfOf
+    ) external;
 
-    function repay(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf)
-        external
-        returns (uint256);
+    function repay(
+        address asset,
+        uint256 amount,
+        uint256 interestRateMode,
+        address onBehalfOf
+    ) external returns (uint256);
 
     function liquidationCall(
         address collateralAsset,
