@@ -40,7 +40,7 @@
 **Addresses (Sepolia examples)**
 - `POOL_ADDR=0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951`
 - `ORACLE_ADDR=0x2da88497588bf89281816106C7259e31AF45a663`
-- `ROUTER_ADDR=0xE592427A0AEce92De3Edee1F18E0157C05861564`
+- `ROUTER_ADDR=0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E`
 - `COLLATERAL_ADDR=WETH=0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c`
 - `DEBT_ADDR=USDC=0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8`
 
@@ -77,6 +77,22 @@
   - `forge script script/DeployLeverageLooper.s.sol:DeployLeverageLooper --rpc-url https://lasna-rpc.rnk.dev/ --private-key 0x<LASNA_KEY> --broadcast`
   - RN tooling should register subscriptions to feed events to the Lasna RC.
 
+**Deployed (Sepolia)**
+- Contract: `0xb0a4c3b9CB97D0A1171F48a0edfE51580d2d545b`
+- Etherscan: `https://sepolia.etherscan.io/address/0xb0a4c3b9CB97D0A1171F48a0edfE51580d2d545b`
+- Tx hashes:
+  - Config tx 1: `0x137c0511c160aa92b167a0381d97a14ae54e77bb6cccbe8be091954dea5a0fdb`
+  - Config tx 2: `0x19e97d409caf6b37c2cd78a408a477fa05371026af667d6bc335da9611cd6f03`
+  - Create tx: `0x1d34f7c64429ec48c139f22b6451f6b9394e2d6533960f759140c2fffd814ede`
+
+**RPC Endpoints (public)**
+- Sepolia: `https://rpc.sepolia.org` or `https://ethereum-sepolia-rpc.publicnode.com`
+- Linea Sepolia (Lasna): `https://rpc.sepolia.linea.build` or `https://lasna-rpc.rnk.dev/`
+- Base Sepolia: `https://sepolia.base.org`
+- Optimism Sepolia: `https://sepolia.optimism.io`
+- Arbitrum Sepolia: `https://sepolia-rollup.arbitrum.io/rpc`
+- Polygon Amoy: `https://rpc-amoy.polygon.technology`
+- Scroll Sepolia: `https://sepolia-rpc.scroll.io`
 **Workflow (Step-by-step)**
 - Step 1: Approve collateral on Sepolia
   - Tx: `approve(DEST_LOOPER_ADDR, amount)` from user

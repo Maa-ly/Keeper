@@ -6,3 +6,12 @@ optimizer = true
 via_ir = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+[rpc_endpoints]
+sepolia = "https://rpc.sepolia.org"
+linea_sepolia = "https://rpc.sepolia.linea.build"
+base_sepolia = "https://sepolia.base.org"
+optimism_sepolia = "https://sepolia.optimism.io"
+arbitrum_sepolia = "https://sepolia-rollup.arbitrum.io/rpc"
+polygon_amoy = "https://rpc-amoy.polygon.technology"
+scroll_sepolia = "https://sepolia-rpc.scroll.io"
