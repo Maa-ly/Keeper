@@ -85,6 +85,14 @@
   - Config tx 2: `0x19e97d409caf6b37c2cd78a408a477fa05371026af667d6bc335da9611cd6f03`
   - Create tx: `0x1d34f7c64429ec48c139f22b6451f6b9394e2d6533960f759140c2fffd814ede`
 
+**Deployed (Lasna)**
+- Contract: `0x36F1e6E3ea17f85aEC73717Ad523B78AFe0714dA`
+- RPC: `https://lasna-rpc.rnk.dev/`
+- Tx hashes:
+  - Create tx: `0xfd1cfac5d08612836f9a2d01a22703fd4d3cc8260639a449128e7c2c6eed07d2`
+  - Config tx 1: `0xabd4cd05256980c18ae393d525de359e53865e95c75eeb8f95c4f5e8c73ead65`
+  - Config tx 2: `0x3b2ec76e7585c4397ed6803bb08144eb58da33c61d18a4f24c04a81130e5c746`
+
 **RPC Endpoints (public)**
 - Sepolia: `https://rpc.sepolia.org` or `https://ethereum-sepolia-rpc.publicnode.com`
 - Linea Sepolia (Lasna): `https://rpc.sepolia.linea.build` or `https://lasna-rpc.rnk.dev/`
@@ -93,6 +101,22 @@
 - Arbitrum Sepolia: `https://sepolia-rollup.arbitrum.io/rpc`
 - Polygon Amoy: `https://rpc-amoy.polygon.technology`
 - Scroll Sepolia: `https://sepolia-rpc.scroll.io`
+
+**Interact Scripts**
+- Opt-in and loop:
+  - `ACTION=opt_in_and_loop LOOPER_ADDR=0x<ADDR> SUPPLY_AMOUNT=<uint> TARGET_LTV_BPS=<uint> MAX_ITERATIONS=<uint> POOL_FEE=<uint> SLIPPAGE_BPS=<uint> MIN_HEALTH_FACTOR=<uint> PROFIT_TARGET_BASE=<uint> forge script script/InteractLeverageLooper.s.sol:InteractLeverageLooper --rpc-url <RPC> --broadcast --private-key 0x<KEY>`
+- Unwind to LTV:
+  - `ACTION=unwind LOOPER_ADDR=0x<ADDR> TARGET_LTV_BPS=<uint> MAX_ITERATIONS=<uint> POOL_FEE=<uint> SLIPPAGE_BPS=<uint> forge script script/InteractLeverageLooper.s.sol:InteractLeverageLooper --rpc-url <RPC> --broadcast --private-key 0x<KEY>`
+- Maybe arbitrage:
+  - `ACTION=maybe_arb LOOPER_ADDR=0x<ADDR> forge script script/InteractLeverageLooper.s.sol:InteractLeverageLooper --rpc-url <RPC> --broadcast --private-key 0x<KEY>`
+- Loop to TVL:
+  - `ACTION=loop_to_tvl LOOPER_ADDR=0x<ADDR> TARGET_COLLATERAL_BASE=<uint> MAX_ITERATIONS=<uint> POOL_FEE=<uint> SLIPPAGE_BPS=<uint> LIQ_TARGET=0x<TARGET> MAX_DEBT_PER_STEP=<uint> forge script script/InteractLeverageLooper.s.sol:InteractLeverageLooper --rpc-url <RPC> --broadcast --private-key 0x<KEY>`
+- Liquidate:
+  - `ACTION=liquidate_loop LOOPER_ADDR=0x<ADDR> LIQ_TARGET=0x<TARGET> MAX_ITERATIONS=<uint> MAX_DEBT_PER_STEP=<uint> POOL_FEE=<uint> SLIPPAGE_BPS=<uint> forge script script/InteractLeverageLooper.s.sol:InteractLeverageLooper --rpc-url <RPC> --broadcast --private-key 0x<KEY>`
+- Set per-chain config:
+  - `ACTION=set_chain LOOPER_ADDR=0x<ADDR> CHAIN_ID=<uint> CHAIN_ROUTER=0x<ADDR> CHAIN_POOL=0x<ADDR> CHAIN_ORACLE=0x<ADDR> CHAIN_COLLATERAL=0x<ADDR> CHAIN_DEBT=0x<ADDR> CHAIN_FEE=<uint> forge script script/InteractLeverageLooper.s.sol:InteractLeverageLooper --rpc-url <RPC> --broadcast --private-key 0x<KEY>`
+- Set destination for callbacks:
+  - `ACTION=set_destination LOOPER_ADDR=0x<ADDR> DEST_LOOPER_ADDR=0x<ADDR> DEST_CHAIN_ID=<uint> forge script script/InteractLeverageLooper.s.sol:InteractLeverageLooper --rpc-url <RPC> --broadcast --private-key 0x<KEY>`
 **Workflow (Step-by-step)**
 - Step 1: Approve collateral on Sepolia
   - Tx: `approve(DEST_LOOPER_ADDR, amount)` from user
